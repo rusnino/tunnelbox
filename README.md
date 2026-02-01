@@ -44,7 +44,7 @@ Unified Docker Compose stack for VPN services (WireGuard and AmneziaWG) with web
    - `PIHOLE_WEBPASSWORD`
      
 > 💡 Replace `AWG_PASSWORD_HASH` with a bcrypt password hash to log in on the Web UI.
-> See [How_to_generate_an_bcrypt_hash.md](./How_to_generate_an_bcrypt_hash.md) for know how generate the hash.
+> See [How_to_generate_an_bcrypt_hash.md](https://github.com/w0rng/amnezia-wg-easy/blob/master/How_to_generate_an_bcrypt_hash.md) for know how generate the hash.
 
    Optional (recommended):
    - `WG_UI_PORT`
