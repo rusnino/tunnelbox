@@ -1,9 +1,45 @@
-name: tunnelbox
+name: tb
 
 services:
+  caddyfile-init:
+    image: alpine:latest
+    container_name: tb-caddyfile-init
+    working_dir: /work
+    volumes:
+      - ./:/work
+    command: |
+      sh -ceu '
+        mkdir -p caddy
+
+        if [ -d caddy/Caddyfile ]; then
+          echo "ERROR: caddy/Caddyfile is a directory. Remove it and retry." >&2
+          exit 1
+        fi
+
+        if [ ! -f caddy/Caddyfile ]; then
+          cat > caddy/Caddyfile <<'"'"'EOF'"'"'
+      {
+        email {$$CADDY_EMAIL}
+      }
+      
+      {$$WG_HOST} {
+        reverse_proxy tb-wg-easy:51821
+      }
+      
+      {$$AWG_HOST} {
+        reverse_proxy tb-awg-easy:51821
+      }
+      EOF
+          echo "Created caddy/Caddyfile"
+        else
+          echo "caddy/Caddyfile already exists, skip"
+        fi
+      '
+    restart: "no"
+
   caddy:
     image: ${CADDY_IMAGE:-caddy:latest}
-    container_name: tunnelbox-caddy
+    container_name: tb-caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -13,83 +49,124 @@ services:
       - caddy_config:/config
       # Provide your Caddyfile at this path (created in a later step).
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - awg-easy
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
     env_file: .env
-    networks:
-      - private_network
+    networks: 
+      public_network:
+      private_network:
+        ipv4_address: ${PRIVATE_IPV4_CADDY:-10.2.0.4}
+        ipv6_address: ${PRIVATE_IPV6_CADDY:-fdcc:ad94:bacf:61a3::4a}
 
   wg-easy:
-    image: ${WG_EASY_IMAGE:-ghcr.io/wg-easy/wg-easy:latest}
-    container_name: tunnelbox-wg-easy
+    image: ${WG_EASY_IMAGE:-codeberg.org/wg-easy/wg-easy:15}
+    container_name: tb-wg-easy
     restart: unless-stopped
     environment:
-      - WG_HOST=${WG_HOST}
-      - PASSWORD=${WG_EASY_PASSWORD}
-      - WG_PORT=${WG_PORT:-51820}
-      - WG_DEFAULT_DNS=${WG_DEFAULT_DNS:-10.2.0.200}
+      #- WG_HOST=${WG_HOST}
+      #- PASSWORD_HASH=${WG_PASSWORD_HASH:-'YOUR_PASS_HASH'}
+      #- WG_PORT=${WG_PORT:-51820}
+      #- PORT=${WG_UI_PORT:-51821}
+      #- WG_DEFAULT_DNS=${PRIVATE_IPV4_PIHOLE:-10.2.0.100}
+      - INIT_ENABLED=true
+      - INIT_USERNAME=${WG_USERNAME:-admin}
+      - INIT_PASSWORD=${WG_PASSWORD}
+      - INIT_HOST=${WG_HOST}
+      - INIT_PORT=${WG_PORT:-51820}
+      - INIT_DNS=${PRIVATE_IPV4_PIHOLE:-10.2.0.100},${PRIVATE_IPV6_PIHOLE:-fdcc:ad94:bacf:61a3::ea}
+      - INIT_IPV4_CIDR=10.8.0.0/24
+      - INIT_IPV6_CIDR=fd42:42:42::/64
     ports:
       - "${WG_PORT:-51820}:51820/udp"
     volumes:
       - wg_easy_data:/etc/wireguard
+      - /lib/modules:/lib/modules:ro
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
     sysctls:
       - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
       - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.default.forwarding=1
     env_file: .env
     networks:
-      - private_network
+      public_network:
+      private_network:
+        ipv4_address: ${PRIVATE_IPV4_WG:-10.2.0.3}
+        ipv6_address: ${PRIVATE_IPV6_WG:-fdcc:ad94:bacf:61a3::3a}
 
-  amneziawg-easy:
-    image: ${AMNEZIAWG_EASY_IMAGE:-ghcr.io/amnezia-vpn/amneziawg-easy:latest}
-    container_name: tunnelbox-amneziawg-easy
+  awg-easy:
+    image: ${AMNEZIAWG_EASY_IMAGE:-ghcr.io/w0rng/amnezia-wg-easy:latest}
+    container_name: tb-awg-easy
     restart: unless-stopped
     environment:
-      - AWG_HOST=${AWG_HOST}
-      - PASSWORD=${AMNEZIAWG_EASY_PASSWORD}
-      - AWG_PORT=${AWG_PORT:-51821}
-      - AWG_DEFAULT_DNS=${AWG_DEFAULT_DNS:-10.2.0.200}
+      - WG_HOST=${AWG_HOST}
+      - PASSWORD_HASH=${AWG_PASSWORD_HASH:-'YOURPASSWORD_HASH'}
+      - WG_PORT=${AWG_PORT:-51822}
+      - PORT=${AWG_UI_PORT:-51821}
+      - WG_DEFAULT_DNS=${PRIVATE_IPV4_PIHOLE:-10.2.0.100}
+      - WG_PERSISTENT_KEEPALIVE=${AWG_KEEPALIVE:-25}
+      - LANG="en"
     ports:
-      - "${AWG_PORT:-51821}:51821/udp"
+      - "${AWG_PORT:-51822}:51822/udp"
     volumes:
-      - amneziawg_easy_data:/etc/wireguard
+      - awg_easy_data:/etc/wireguard
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
     sysctls:
       - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
       - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.default.forwarding=1
     env_file: .env
     networks:
-      - private_network
+      public_network:
+      private_network:
+        ipv4_address: ${PRIVATE_IPV4_AWG:-10.2.0.2}
+        ipv6_address: ${PRIVATE_IPV6_AWG:-fdcc:ad94:bacf:61a3::2a}
+
 
   unbound:
     image: ${UNBOUND_IMAGE:-mvance/unbound:latest}
-    container_name: tunnelbox-unbound
+    container_name: tb-unbound
     restart: unless-stopped
     hostname: unbound
     volumes:
-      - ./unbound:/opt/unbound/etc/unbound/
+      - unbound_data:/opt/unbound/etc/unbound/
     cap_add:
       - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
     env_file: .env
     networks:
       private_network:
-        ipv4_address: 10.2.0.200
+        ipv4_address: ${PRIVATE_IPV4_UNBOUND:-10.2.0.200}
+        ipv6_address: ${PRIVATE_IPV6_UNBOUND:-fdcc:ad94:bacf:61a3::fa}
 
   pihole:
     image: ${PIHOLE_IMAGE:-pihole/pihole:latest}
-    container_name: tunnelbox-pihole
+    container_name: tb-pihole
     restart: unless-stopped
     hostname: pihole
     depends_on:
       - unbound
     dns:
       - 127.0.0.1
-      - ${PIHOLE_DNS:-10.2.0.200}
+      - ${PRIVATE_IPV4_UNBOUND:-10.2.0.200}
     environment:
-      - TZ=${TZ:-UTC}
+      - TZ=${PIHOLE_TZ:-UTC}
       - WEBPASSWORD=${PIHOLE_WEBPASSWORD}
+      - ServerIP=${PRIVATE_IPV4_PIHOLE:-10.2.0.100}
       - DNS1=unbound#5335
       - DNS2=unbound#5335
     ports:
@@ -100,20 +177,29 @@ services:
       - ./etc-dnsmasq.d:/etc/dnsmasq.d/
     cap_add:
       - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0 
     env_file: .env
     networks:
       private_network:
-        ipv4_address: 10.2.0.100
+        ipv4_address: ${PRIVATE_IPV4_PIHOLE:-10.2.0.100}
+        ipv6_address: ${PRIVATE_IPV6_PIHOLE:-fdcc:ad94:bacf:61a3::ea}
 
 volumes:
   caddy_data:
   caddy_config:
   wg_easy_data:
-  amneziawg_easy_data:
+  awg_easy_data:
+  unbound_data:
 
 networks:
+  public_network:
+    driver: bridge
   private_network:
+    driver: bridge
+    enable_ipv6: true
     ipam:
       driver: default
       config:
-        - subnet: 10.2.0.0/24
+        - subnet: ${PRIVATE_IPV4_SUBNET:-10.2.0.0/24}
+        - subnet: ${PRIVATE_IPV6_SUBNET:-fdcc:ad94:bacf:61a3::/64}
