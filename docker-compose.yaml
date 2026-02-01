@@ -1,0 +1,105 @@
+name: tunnelbox
+
+services:
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:latest}
+    container_name: tunnelbox-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      # Provide your Caddyfile at this path (created in a later step).
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - edge
+
+  wg-easy:
+    image: ${WG_EASY_IMAGE:-ghcr.io/wg-easy/wg-easy:latest}
+    container_name: tunnelbox-wg-easy
+    restart: unless-stopped
+    environment:
+      - WG_HOST=${WG_HOST}
+      - PASSWORD=${WG_EASY_PASSWORD}
+      - WG_PORT=${WG_PORT:-51820}
+      - WG_DEFAULT_DNS=${WG_DEFAULT_DNS:-}
+    ports:
+      - "${WG_PORT:-51820}:51820/udp"
+    volumes:
+      - wg_easy_data:/etc/wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+    networks:
+      - edge
+      - vpn
+
+  amneziawg-easy:
+    image: ${AMNEZIAWG_EASY_IMAGE:-ghcr.io/amnezia-vpn/amneziawg-easy:latest}
+    container_name: tunnelbox-amneziawg-easy
+    restart: unless-stopped
+    environment:
+      - AWG_HOST=${AWG_HOST}
+      - PASSWORD=${AMNEZIAWG_EASY_PASSWORD}
+      - AWG_PORT=${AWG_PORT:-51821}
+      - AWG_DEFAULT_DNS=${AWG_DEFAULT_DNS:-}
+    ports:
+      - "${AWG_PORT:-51821}:51821/udp"
+    volumes:
+      - amneziawg_easy_data:/etc/wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+    networks:
+      - edge
+      - vpn
+
+  unbound:
+    image: ${UNBOUND_IMAGE:-mvance/unbound:latest}
+    container_name: tunnelbox-unbound
+    restart: unless-stopped
+    networks:
+      - internal
+
+  pihole:
+    image: ${PIHOLE_IMAGE:-pihole/pihole:latest}
+    container_name: tunnelbox-pihole
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-UTC}
+      - WEBPASSWORD=${PIHOLE_WEBPASSWORD}
+      # Point Pi-hole to Unbound as upstream DNS
+      - DNS1=unbound#5335
+      - DNS2=unbound#5335
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+    volumes:
+      - pihole_etc:/etc/pihole
+      - pihole_dnsmasq:/etc/dnsmasq.d
+    depends_on:
+      - unbound
+    networks:
+      - edge
+      - internal
+
+volumes:
+  caddy_data:
+  caddy_config:
+  wg_easy_data:
+  amneziawg_easy_data:
+  pihole_etc:
+  pihole_dnsmasq:
+
+networks:
+  edge:
+  internal:
+  vpn:

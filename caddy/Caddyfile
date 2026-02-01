@@ -1,0 +1,11 @@
+{
+  email {$CADDY_EMAIL}
+}
+
+{$WG_HOST} {
+  reverse_proxy wg-easy:51821
+}
+
+{$AWG_HOST} {
+  reverse_proxy amneziawg-easy:51821
+}
