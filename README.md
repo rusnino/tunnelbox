@@ -24,7 +24,7 @@ Unified Docker Compose stack for VPN services (WireGuard and AmneziaWG) with web
 
 1) Clone the repository and enter it:
 
-   - `git clone <repo-url>`
+   - `git clone https://github.com/rusnino/tunnelbox.git`
    - `cd tunnelbox`
 
 2) Create `.env` based on `.env.example`:
@@ -36,16 +36,19 @@ Unified Docker Compose stack for VPN services (WireGuard and AmneziaWG) with web
    Required:
    - `WG_HOST`
    - `WG_PORT`
-   - `WG_UI_PORT`
    - `WG_USERNAME`
    - `WG_PASSWORD`
    - `AWG_HOST`
    - `AWG_PORT`
-   - `AWG_UI_PORT`
-   - `AWG_PASSWORD_HASH`
+   - `AWG_PASSWORD_HASH` (see 
    - `PIHOLE_WEBPASSWORD`
+     
+> 💡 Replace `AWG_PASSWORD_HASH` with a bcrypt password hash to log in on the Web UI.
+> See [How_to_generate_an_bcrypt_hash.md](./How_to_generate_an_bcrypt_hash.md) for know how generate the hash.
 
    Optional (recommended):
+   - `WG_UI_PORT`
+   - `AWG_UI_PORT`
    - `CADDY_EMAIL`
    - `AWG_KEEPALIVE`
    - `PIHOLE_TZ`
