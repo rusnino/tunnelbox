@@ -43,10 +43,6 @@ Unified Docker Compose stack for VPN services (WireGuard and AmneziaWG) with web
    - `AWG_PASSWORD_HASH`
    - `PIHOLE_WEBPASSWORD`
      
-> 💡 Replace `AWG_PASSWORD_HASH` with a bcrypt password hash to log in on the Web UI.
-> See [How_to_generate_an_bcrypt_hash.md](https://github.com/w0rng/amnezia-wg-easy/blob/master/How_to_generate_an_bcrypt_hash.md) for know how generate the hash.
-
-
    Optional (recommended):
    - `WG_UI_PORT`
    - `AWG_UI_PORT`
@@ -55,6 +51,9 @@ Unified Docker Compose stack for VPN services (WireGuard and AmneziaWG) with web
    - `PIHOLE_TZ`
    - `PRIVATE_IPV4_SUBNET`, `PRIVATE_IPV6_SUBNET`
    - `PRIVATE_IPV4_*`, `PRIVATE_IPV6_*` (static addresses)
+
+> 💡 Replace `AWG_PASSWORD_HASH` with a bcrypt password hash to log in on the Web UI.
+> See [How_to_generate_an_bcrypt_hash.md](https://github.com/w0rng/amnezia-wg-easy/blob/master/How_to_generate_an_bcrypt_hash.md) for know how generate the hash.
 
 4) (Optional) Adjust `caddy/Caddyfile` if you want custom routing.
    The stack will create a default `caddy/Caddyfile` via `caddyfile-init`
